@@ -13,6 +13,9 @@ import { generateHashedPassword } from "./utils";
 
 export async function getUser(email: string): Promise<User[]> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     return await db.select().from(users).where(eq(users.email, email));
   } catch (error) {
     console.error("Failed to get user from database");
@@ -25,6 +28,9 @@ export async function createUser(
   password: string,
 ): Promise<User[]> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const hashedPassword = generateHashedPassword(password);
     return await db
       .insert(users)
@@ -41,6 +47,9 @@ export async function createUser(
 
 export async function createGuestUser(): Promise<User[]> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const guestId = generateUUID();
     const guestEmail = `guest-${guestId}@example.com`;
 
@@ -66,6 +75,9 @@ export async function createChatOwnership({
   userId: string;
 }) {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     return await db
       .insert(chat_ownerships)
       .values({
@@ -81,6 +93,9 @@ export async function createChatOwnership({
 
 export async function getChatOwnership({ v0ChatId }: { v0ChatId: string }) {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const [ownership] = await db
       .select()
       .from(chat_ownerships)
@@ -98,6 +113,9 @@ export async function getChatIdsByUserId({
   userId: string;
 }): Promise<string[]> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const ownerships = await db
       .select({ v0ChatId: chat_ownerships.v0_chat_id })
       .from(chat_ownerships)
@@ -113,6 +131,9 @@ export async function getChatIdsByUserId({
 
 export async function deleteChatOwnership({ v0ChatId }: { v0ChatId: string }) {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     return await db
       .delete(chat_ownerships)
       .where(eq(chat_ownerships.v0_chat_id, v0ChatId));
@@ -131,6 +152,9 @@ export async function getChatCountByUserId({
   differenceInHours: number;
 }): Promise<number> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const hoursAgo = new Date(Date.now() - differenceInHours * 60 * 60 * 1000);
 
     const [stats] = await db
@@ -158,6 +182,9 @@ export async function getChatCountByIP({
   differenceInHours: number;
 }): Promise<number> {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     const hoursAgo = new Date(Date.now() - differenceInHours * 60 * 60 * 1000);
 
     const [stats] = await db
@@ -185,6 +212,9 @@ export async function createAnonymousChatLog({
   v0ChatId: string;
 }) {
   try {
+    if (!db) {
+      throw new Error("Database not initialized");
+    }
     return await db.insert(anonymous_chat_logs).values({
       ip_address: ipAddress,
       v0_chat_id: v0ChatId,
