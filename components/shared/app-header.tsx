@@ -7,7 +7,6 @@ import { Suspense, useEffect } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { GitHubIcon } from "@/components/ui/icons";
-import { LogoIcon } from "@/components/ui/logo";
 import { UserNav } from "@/components/user-nav";
 import { ChatSelector } from "./chat-selector";
 
@@ -65,9 +64,9 @@ export function AppHeader({ className = "" }: AppHeaderProps) {
             <Link
               href="/"
               onClick={handleLogoClick}
-              className="text-gray-900 hover:text-gray-700 dark:text-white dark:hover:text-gray-300 transition-colors"
+              className="font-semibold text-gray-900 text-lg hover:text-gray-700 dark:text-white dark:hover:text-gray-300"
             >
-              <LogoIcon size={32} />
+              v0.diy
             </Link>
             <ChatSelector />
           </div>
@@ -85,7 +84,7 @@ export function AppHeader({ className = "" }: AppHeaderProps) {
                 rel="noopener noreferrer"
               >
                 <GitHubIcon size={16} />
-                husslerz
+                sujalxplores/v0.diy
               </Link>
             </Button>
             <UserNav session={session} />

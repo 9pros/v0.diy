@@ -7,8 +7,6 @@ import {
   anonymous_chat_logs,
   chat_ownerships,
   type User,
-  type UserPreference,
-  user_preferences,
   users,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
@@ -193,61 +191,6 @@ export async function createAnonymousChatLog({
     });
   } catch (error) {
     console.error("Failed to create anonymous chat log in database");
-    throw error;
-  }
-}
-
-// User preferences functions
-export async function getUserPreference({
-  userId,
-}: {
-  userId: string;
-}): Promise<UserPreference | null> {
-  try {
-    const [preference] = await db
-      .select()
-      .from(user_preferences)
-      .where(eq(user_preferences.user_id, userId));
-    return preference || null;
-  } catch (error) {
-    console.error("Failed to get user preference from database");
-    throw error;
-  }
-}
-
-export async function upsertUserPreference({
-  userId,
-  provider,
-  modelName,
-  providerConfig,
-}: {
-  userId: string;
-  provider: string;
-  modelName?: string;
-  providerConfig?: string;
-}): Promise<UserPreference[]> {
-  try {
-    return await db
-      .insert(user_preferences)
-      .values({
-        user_id: userId,
-        provider,
-        model_name: modelName,
-        provider_config: providerConfig,
-        updated_at: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: user_preferences.user_id,
-        set: {
-          provider,
-          model_name: modelName,
-          provider_config: providerConfig,
-          updated_at: new Date(),
-        },
-      })
-      .returning();
-  } catch (error) {
-    console.error("Failed to upsert user preference in database");
     throw error;
   }
 }

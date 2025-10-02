@@ -1,19 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { type ChatDetail, createClient } from "v0-sdk";
 import { auth } from "@/app/(auth)/auth";
 import {
   createAnonymousChatLog,
   createChatOwnership,
   getChatCountByIP,
   getChatCountByUserId,
-  getUserPreference,
 } from "@/lib/db/queries";
 import {
   anonymousEntitlements,
   entitlementsByUserType,
 } from "@/lib/entitlements";
 import { ChatSDKError } from "@/lib/errors";
-import { ProviderFactory } from "@/lib/providers/provider-factory";
-import type { ProviderType } from "@/lib/providers/types";
+
+// Create v0 client with custom baseUrl if V0_API_URL is set
+const v0 = createClient(
+  process.env.V0_API_URL ? { baseUrl: process.env.V0_API_URL } : {},
+);
 
 function getClientIP(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -43,56 +46,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get user's provider preference
-    let providerType: ProviderType = "v0";
-    let modelName: string | undefined;
-    let providerConfig: Record<string, unknown> = {};
-
-    // Start with environment-based defaults for all providers
-    const envDefaults: Record<string, unknown> = {};
-
-    // V0 provider defaults from environment
-    if (process.env.V0_API_KEY) {
-      envDefaults.v0ApiKey = process.env.V0_API_KEY;
-    }
-    if (process.env.V0_API_URL) {
-      envDefaults.v0BaseUrl = process.env.V0_API_URL;
-    }
-
-    if (session?.user?.id) {
-      const preference = await getUserPreference({ userId: session.user.id });
-      if (preference) {
-        providerType = preference.provider as ProviderType;
-        modelName = preference.model_name || undefined;
-        if (preference.provider_config) {
-          try {
-            providerConfig = JSON.parse(preference.provider_config);
-          } catch (e) {
-            console.error("Failed to parse provider config:", e);
-          }
-        }
-      }
-    }
-
-    // Merge environment defaults with user config based on provider type
-    if (providerType === "v0") {
-      // For V0, always use environment API key if available (don't let user override)
-      if (envDefaults.v0ApiKey) {
-        providerConfig.apiKey = envDefaults.v0ApiKey;
-      }
-      // Use environment base URL as default, but allow user override
-      if (envDefaults.v0BaseUrl && !providerConfig.baseUrl) {
-        providerConfig.baseUrl = envDefaults.v0BaseUrl;
-      }
-    }
-
-    // Add model name to config
-    if (modelName) {
-      providerConfig.modelName = modelName;
-    }
-
     // Rate limiting
     if (session?.user?.id) {
+      // Authenticated user rate limiting
       const chatCount = await getChatCountByUserId({
         userId: session.user.id,
         differenceInHours: 24,
@@ -108,11 +64,9 @@ export async function POST(request: NextRequest) {
         chatId,
         streaming,
         userId: session.user.id,
-        provider: providerType,
-        model: modelName,
-        hasApiKey: !!providerConfig.apiKey,
       });
     } else {
+      // Anonymous user rate limiting
       const clientIP = getClientIP(request);
       const chatCount = await getChatCountByIP({
         ipAddress: clientIP,
@@ -128,93 +82,128 @@ export async function POST(request: NextRequest) {
         chatId,
         streaming,
         ip: clientIP,
-        provider: providerType,
-        hasApiKey: !!providerConfig.apiKey,
       });
     }
 
-    // Get the provider
-    const provider = ProviderFactory.getProvider(providerType);
+    console.log("Using baseUrl:", process.env.V0_API_URL || "default");
 
-    let result: unknown;
+    let chat: ChatDetail | ReadableStream<Uint8Array> | null = null;
 
     if (chatId) {
-      // Continue existing chat
-      result = await provider.continueChat(
-        {
-          message,
+      // continue existing chat
+      if (streaming) {
+        // Return streaming response for existing chat
+        console.log("Sending streaming message to existing chat:", {
           chatId,
-          attachments,
-          streaming,
-        },
-        providerConfig,
-      );
-    } else {
-      // Create new chat
-      result = await provider.createChat(
-        {
           message,
-          attachments,
-          streaming,
-        },
-        providerConfig,
-      );
-    }
+          responseMode: "experimental_stream",
+        });
+        chat = await v0.chats.sendMessage({
+          chatId: chatId,
+          message,
+          responseMode: "experimental_stream",
+          ...(attachments && attachments.length > 0 && { attachments }),
+        });
+        console.log("Streaming message sent to existing chat successfully");
 
-    // Handle streaming response
-    if (result instanceof ReadableStream) {
-      return new Response(result, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
+        // Return the stream directly
+        return new Response(chat as ReadableStream<Uint8Array>, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
+      }
+      // Non-streaming response for existing chat
+      chat = await v0.chats.sendMessage({
+        chatId: chatId,
+        message,
+        ...(attachments && attachments.length > 0 && { attachments }),
       });
+    } else {
+      // create new chat
+      if (streaming) {
+        // Return streaming response
+        console.log("Creating streaming chat with params:", {
+          message,
+          responseMode: "experimental_stream",
+        });
+        chat = await v0.chats.create({
+          message,
+          responseMode: "experimental_stream",
+          ...(attachments && attachments.length > 0 && { attachments }),
+        });
+        console.log("Streaming chat created successfully");
+
+        // Return the stream directly
+        return new Response(chat as ReadableStream<Uint8Array>, {
+          headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            Connection: "keep-alive",
+          },
+        });
+      }
+      // Use sync mode
+      console.log("Creating sync chat with params:", {
+        message,
+        responseMode: "sync",
+      });
+      chat = await v0.chats.create({
+        message,
+        responseMode: "sync",
+        ...(attachments && attachments.length > 0 && { attachments }),
+      });
+      console.log("Sync chat created successfully");
     }
 
-    // Handle sync response
-    const chatResponse = result as {
-      id: string;
-      demo?: { code?: string; language?: string };
-      messages?: Array<{
-        id: string;
-        role: string;
-        content: string;
-        experimental_content?: unknown;
-      }>;
-    };
+    // Type guard to ensure we have a ChatDetail and not a stream
+    if (chat instanceof ReadableStream) {
+      throw new Error("Unexpected streaming response");
+    }
+
+    const chatDetail = chat as ChatDetail;
 
     // Create ownership mapping or anonymous log for new chat
-    if (!chatId && chatResponse.id) {
+    if (!chatId && chatDetail.id) {
       try {
         if (session?.user?.id) {
+          // Authenticated user - create ownership mapping
           await createChatOwnership({
-            v0ChatId: chatResponse.id,
+            v0ChatId: chatDetail.id,
             userId: session.user.id,
           });
-          console.log("Chat ownership created:", chatResponse.id);
+          console.log("Chat ownership created:", chatDetail.id);
         } else {
+          // Anonymous user - log for rate limiting
           const clientIP = getClientIP(request);
           await createAnonymousChatLog({
             ipAddress: clientIP,
-            v0ChatId: chatResponse.id,
+            v0ChatId: chatDetail.id,
           });
-          console.log(
-            "Anonymous chat logged:",
-            chatResponse.id,
-            "IP:",
-            clientIP,
-          );
+          console.log("Anonymous chat logged:", chatDetail.id, "IP:", clientIP);
         }
       } catch (error) {
         console.error("Failed to create chat ownership/log:", error);
+        // Don't fail the request if database save fails
       }
     }
 
-    return NextResponse.json(chatResponse);
+    return NextResponse.json({
+      id: chatDetail.id,
+      demo: chatDetail.demo,
+      messages: chatDetail.messages?.map((msg) => ({
+        ...msg,
+        experimental_content: (
+          msg as typeof msg & { experimental_content?: unknown }
+        ).experimental_content,
+      })),
+    });
   } catch (error) {
-    console.error("API Error:", error);
+    console.error("V0 API Error:", error);
 
+    // Log more detailed error information
     if (error instanceof Error) {
       console.error("Error message:", error.message);
       console.error("Error stack:", error.stack);
