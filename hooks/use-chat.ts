@@ -181,13 +181,16 @@ export function useChat(chatId: string) {
     }
   };
 
-  const handleStreamingComplete = async (finalContent: unknown[]) => {
+  const handleStreamingComplete = async (finalContent: string | any) => {
     setIsStreaming(false);
     setIsLoading(false);
 
+    // Convert to array if needed for processing
+    const contentArray = Array.isArray(finalContent) ? finalContent : [finalContent];
+
     console.log(
       "Stream completed with final content:",
-      JSON.stringify(finalContent, null, 2),
+      JSON.stringify(contentArray, null, 2),
     );
 
     // Always try to fetch updated chat details after streaming completes
@@ -221,7 +224,7 @@ export function useChat(chatId: string) {
     }
 
     // Try to extract chat ID from the final content if we don't have one yet
-    if (!currentChat && finalContent && Array.isArray(finalContent)) {
+    if (!currentChat && contentArray && contentArray.length > 0) {
       let newChatId: string | undefined;
 
       // Search through the content structure for chat ID
@@ -262,7 +265,7 @@ export function useChat(chatId: string) {
         }
       };
 
-      finalContent.forEach(searchForChatId);
+      contentArray.forEach(searchForChatId);
 
       if (newChatId) {
         console.log("Found chat ID:", newChatId);
