@@ -24,6 +24,7 @@ import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { PreviewPanel } from "@/components/chat/preview-panel";
+import { ProviderSelector } from "@/components/chat/provider-selector";
 import { AppHeader } from "@/components/shared/app-header";
 import { ResizableLayout } from "@/components/shared/resizable-layout";
 
@@ -502,6 +503,9 @@ export function HomeClient() {
 
           {/* Prompt Input */}
           <div className="mx-auto max-w-2xl">
+            <div className="mb-2 flex items-center justify-start">
+              <ProviderSelector />
+            </div>
             <PromptInput
               onSubmit={handleSendMessage}
               className="relative w-full"

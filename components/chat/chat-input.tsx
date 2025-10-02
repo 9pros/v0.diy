@@ -16,6 +16,7 @@ import {
   savePromptToStorage,
 } from "@/components/ai-elements/prompt-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
+import { ProviderSelector } from "./provider-selector";
 
 interface ChatInputProps {
   message: string;
@@ -29,6 +30,7 @@ interface ChatInputProps {
   attachments?: ImageAttachment[];
   onAttachmentsChange?: (attachments: ImageAttachment[]) => void;
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>;
+  onProviderChange?: (provider: string, model?: string) => void;
 }
 
 export function ChatInput({
@@ -40,6 +42,7 @@ export function ChatInput({
   attachments = [],
   onAttachmentsChange,
   textareaRef,
+  onProviderChange,
 }: ChatInputProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -122,6 +125,9 @@ export function ChatInput({
 
   return (
     <div className="p-4 pt-0">
+      <div className="mx-auto mb-2 flex w-full max-w-2xl items-center justify-start">
+        <ProviderSelector onProviderChange={onProviderChange} />
+      </div>
       <div className="flex gap-2">
         <PromptInput
           onSubmit={handleSubmit}

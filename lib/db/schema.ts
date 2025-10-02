@@ -39,3 +39,19 @@ export const anonymous_chat_logs = pgTable("anonymous_chat_logs", {
 });
 
 export type AnonymousChatLog = InferSelectModel<typeof anonymous_chat_logs>;
+
+// User preferences for AI provider and model
+export const user_preferences = pgTable("user_preferences", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id)
+    .unique(),
+  provider: varchar("provider", { length: 50 }).notNull().default("v0"), // v0, ollama, ollama-cloud, lmstudio, llama
+  model_name: varchar("model_name", { length: 255 }), // e.g., llama3.2, gpt-4, etc.
+  provider_config: varchar("provider_config", { length: 1000 }), // JSON string for provider-specific config
+  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  created_at: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type UserPreference = InferSelectModel<typeof user_preferences>;
