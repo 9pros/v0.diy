@@ -9,10 +9,13 @@ const nextConfig: NextConfig = {
     cssChunking: true,
     inlineCss: true,
   },
-  typedRoutes: true,
+  typedRoutes: false,
   poweredByHeader: false,
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  typescript: {
+    ignoreBuildErrors: false,
   },
 };
 

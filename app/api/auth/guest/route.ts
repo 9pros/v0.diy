@@ -9,8 +9,8 @@ export async function GET(request: Request) {
     redirect: false,
   });
 
-  if (redirectUrl) {
-    redirect(redirectUrl);
+  if (redirectUrl && (redirectUrl.startsWith("/") || redirectUrl.startsWith("http"))) {
+    redirect(redirectUrl as any);
   }
 
   redirect("/");
